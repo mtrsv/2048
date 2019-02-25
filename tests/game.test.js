@@ -1,4 +1,11 @@
-import {rotateMatrix, shrinkRow, convertToMatrix} from './../src/game'
+import {
+  rotateMatrix,
+  shrinkRow,
+  convertToMatrix,
+  move,
+  hasEmptyCell,
+  UP, DOWN, LEFT, RIGHT,
+} from './../src/game'
 
 describe('game', ()=>{
   describe('shrinkRow', ()=>{
@@ -83,5 +90,145 @@ describe('game', ()=>{
       [3,3,3,3],
     ];
     expect(convertToMatrix(initial)).toEqual(expected);
-  })
+  });
+  describe('move', () => {
+    it('move left from right', () => {
+      const initial = [
+        [0,0,2,2],
+        [2,2,4,4],
+        [0,2,2,2],
+        [2,2,2,2],
+      ];
+      const expected = [
+        [4,0,0,0],
+        [4,8,0,0],
+        [4,2,0,0],
+        [4,4,0,0],
+      ];
+      expect(move(initial, LEFT)).toEqual(expected);
+    });
+    it('move left from left', () => {
+      const initial = [
+        [2,2,0,0],
+        [4,4,2,2],
+        [2,2,2,0],
+        [2,2,2,2],
+      ];
+      const expected = [
+        [4,0,0,0],
+        [8,4,0,0],
+        [4,2,0,0],
+        [4,4,0,0],
+      ];
+      expect(move(initial, LEFT)).toEqual(expected);
+    });
+    it('move right from left', () => {
+      const initial = [
+        [2,2,0,0],
+        [4,4,2,2],
+        [2,2,2,0],
+        [2,2,2,2],
+      ];
+      const expected = [
+        [0,0,0,4],
+        [0,0,8,4],
+        [0,0,2,4],
+        [0,0,4,4],
+      ];
+      expect(move(initial, RIGHT)).toEqual(expected);
+    });
+    it('move right from right', () => {
+      const initial = [
+        [0,0,2,2],
+        [2,2,4,4],
+        [0,2,2,2],
+        [2,2,2,2],
+      ];
+      const expected = [
+        [0,0,0,4],
+        [0,0,4,8],
+        [0,0,2,4],
+        [0,0,4,4],
+      ];
+      expect(move(initial, RIGHT)).toEqual(expected);
+    });
+    it('move up from up', () => {
+      const initial = [
+        [2,4,2,2],
+        [2,4,2,2],
+        [0,2,2,2],
+        [0,2,0,2],
+      ];
+      const expected = [
+        [4,8,4,4],
+        [0,4,2,4],
+        [0,0,0,0],
+        [0,0,0,0],
+      ];
+      expect(move(initial, UP)).toEqual(expected);
+    });
+    it('move up from down', () => {
+      const initial = [
+        [0,2,0,2],
+        [0,2,2,2],
+        [2,4,2,2],
+        [2,4,2,2],
+      ];
+      const expected = [
+        [4,4,4,4],
+        [0,8,2,4],
+        [0,0,0,0],
+        [0,0,0,0],
+      ];
+      expect(move(initial, UP)).toEqual(expected);
+    });
+    it('move down from down', () => {
+      const initial = [
+        [0,2,0,2],
+        [0,2,2,2],
+        [2,4,2,2],
+        [2,4,2,2],
+      ];
+      const expected = [
+        [0,0,0,0],
+        [0,0,0,0],
+        [0,4,2,4],
+        [4,8,4,4],
+      ];
+      expect(move(initial, DOWN)).toEqual(expected);
+    });
+    it('move down from up', () => {
+      const initial = [
+        [2,4,2,2],
+        [2,4,2,2],
+        [0,2,2,2],
+        [0,2,0,2],
+      ];
+      const expected = [
+        [0,0,0,0],
+        [0,0,0,0],
+        [0,8,2,4],
+        [4,4,4,4],
+      ];
+      expect(move(initial, DOWN)).toEqual(expected);
+    });
+  });
+
+  it('hasEmptyCell', () => {
+    expect(hasEmptyCell([0])).toEqual(true);
+    expect(hasEmptyCell([2,2,0])).toEqual(true);
+    expect(hasEmptyCell([
+      [2,2,2],
+      [2,0,2],
+      [2,2,2],
+    ])).toEqual(true);
+
+    expect(hasEmptyCell([1])).toEqual(false);
+    expect(hasEmptyCell([2,2,2])).toEqual(false);
+    expect(hasEmptyCell([
+      [2,2,2],
+      [2,2,2],
+      [2,2,2],
+    ])).toEqual(false);
+  });
 });

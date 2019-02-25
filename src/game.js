@@ -1,14 +1,18 @@
 import isEqual from 'lodash/isEqual'
+import flatten from 'lodash/flatten'
+import some from 'lodash/some'
+import cloneDeep from 'lodash/cloneDeep'
 
 const GRID_SIZE = 4;
 
-const UP = 'direction-up';
-const DOWN = 'direction-down';
-const LEFT = 'direction-left';
-const RIGHT = 'direction-right';
+export const UP = 'direction-up';
+export const DOWN = 'direction-down';
+export const LEFT = 'direction-left';
+export const RIGHT = 'direction-right';
 
 let rootElement;
 let rootGrid;
+let isFinished = false;
 
 class Game {
   constructor(rootSelector){
@@ -23,29 +27,60 @@ class Game {
 
   start () {
     document.addEventListener('keydown', onKeyDown);
-    render(rootElement, rootGrid);
+    renderField(rootElement, rootGrid);
   }
 }
 
 const onKeyDown = (event) => {
+  if (isFinished) {
+    return;
+  }
+
+  let newGrid;
   switch (event.key) {
     case 'ArrowLeft':
-      move(LEFT);
+      newGrid = move(rootGrid, LEFT);
       break;
     case 'ArrowRight':
-      move(RIGHT);
+      newGrid = move(rootGrid, RIGHT);
       break;
     case 'ArrowUp':
-      move(UP);
+      newGrid = move(rootGrid, UP);
       break;
     case 'ArrowDown':
-      move(DOWN);
+      newGrid = move(rootGrid, DOWN);
       break;
+  }
+
+  if (newGrid && !isEqual(rootGrid, newGrid)) {
+    let randomNumber = Math.random() * 10 > 9 ? 4 : 2;
+    rootGrid = insertAtRandom(newGrid, randomNumber);
+    renderField(rootElement, rootGrid);
+
+    if(!hasEmptyCell(rootGrid) && !hasMoves(rootGrid)) {
+      renderGameOver(rootElement);
+    }
   }
 };
 
-const move = (direction) => {
-  let grid = rootGrid;
+const hasMoves = (grid) => {
+  if (!isEqual(move(grid, UP), grid)) {
+    return true;
+  }
+  if (!isEqual(move(grid, DOWN), grid)) {
+    return true;
+  }
+  if (!isEqual(move(grid, LEFT), grid)) {
+    return true;
+  }
+  if (!isEqual(move(grid, RIGHT), grid)) {
+    return true;
+  }
+  return false;
+};
+
+export const move = (grid, direction) => {
+  grid = cloneDeep(grid);
   switch (direction) {
     case LEFT:
       break;
@@ -66,9 +101,6 @@ const move = (direction) => {
   let newGrid = calculateGrid(grid);
   if (!isEqual(grid, newGrid)) {
     grid = newGrid;
-    rootGrid = newGrid;
-    let randomNumber = Math.random() * 10 > 9 ? 4 : 2;
-    grid = insertAtRandom(grid, randomNumber);
   }
 
   switch (direction) {
@@ -88,7 +120,7 @@ const move = (direction) => {
       break;
   }
 
-  render(rootElement, grid);
+  return grid;
 };
 
 const calculateGrid = (grid) => {
@@ -101,13 +133,10 @@ const calculateRow = (row) => {
   newRow = shrinkRow(newRow);
 
   for (let i = 0; i < row.length; i++) {
-    if (i < row.length -1 && newRow[i] === 0) {
-      newRow[i] = newRow[i + 1];
-      newRow[i + 1] = 0;
-    }
     if (newRow[i] === newRow[i + 1]) {
       newRow[i] = newRow[i] * 2;
       newRow[i + 1] = 0;
+      newRow = shrinkRow(newRow);
     }
   }
 
@@ -122,10 +151,10 @@ const calculateRow = (row) => {
 export const shrinkRow = (row) => {
   let newRow = row.filter((c) => c !== 0);
 
-  let addNumber = row.length - newRow.length;
-  while (addNumber > 0) {
+  let zerosCounter = row.length - newRow.length;
+  while (zerosCounter > 0) {
     newRow.push(0);
-    addNumber--;
+    zerosCounter--;
   }
 
   return newRow;
@@ -141,10 +170,12 @@ export const rotateMatrix = (matrix) => {
       newMatrix[j][i] = temp;
     }
   }
+
   return newMatrix;
 };
 
 const insertAtRandom = (grid, number) => {
+  //@todo add available cell checking
   const maxX = grid[0].length - 1;
   const maxY = grid.length - 1;
 
@@ -158,7 +189,11 @@ const insertAtRandom = (grid, number) => {
   return grid;
 };
 
-const render = (element, grid) => {
+export const hasEmptyCell = (grid) => {
+  return some(flatten(grid), x => x === 0);
+};
+
+const renderField = (element, grid) => {
   let markup = '';
   grid.forEach((row)=>{
     markup += '<div class="row">';
@@ -168,6 +203,11 @@ const render = (element, grid) => {
     markup += '</div>';
   });
   element.innerHTML = markup;
+};
+
+const renderGameOver = (element) => {
+  element.appendChild(document.createTextNode('Game Over'));
+
 };
 
 export const convertToMatrix = (array, size) => {
@@ -181,6 +221,7 @@ export const convertToMatrix = (array, size) => {
     }
     result[j].push(array[i]);
   }
+
   return result;
 };
 
