@@ -232,6 +232,4 @@ describe('game', ()=>{
       2,2,2,
     ])).toEqual(false);
   });
-
-
 });
