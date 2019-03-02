@@ -24,6 +24,9 @@ class Game {
   start () {
     document.addEventListener('keydown', onKeyDown);
     renderField(rootElement, rootGrid);
+
+    startAI(-1, 20, 0);
+    // makeTest();
   }
 }
 
@@ -41,16 +44,16 @@ const onKeyDown = (event) => {
   let newGrid;
   switch (event.key) {
     case 'ArrowLeft':
-      newGrid = move(rootGrid, LEFT);
+      newGrid = move(rootGrid, LEFT, addGameScore);
       break;
     case 'ArrowRight':
-      newGrid = move(rootGrid, RIGHT);
+      newGrid = move(rootGrid, RIGHT, addGameScore);
       break;
     case 'ArrowUp':
-      newGrid = move(rootGrid, UP);
+      newGrid = move(rootGrid, UP, addGameScore);
       break;
     case 'ArrowDown':
-      newGrid = move(rootGrid, DOWN);
+      newGrid = move(rootGrid, DOWN, addGameScore);
       break;
   }
   if (newGrid && !isMatricesEqual(rootGrid, newGrid)) {
@@ -62,6 +65,10 @@ const onKeyDown = (event) => {
       renderGameOver(rootElement);
     }
   }
+};
+
+const addGameScore = (value) => {
+  score += value;
 };
 
 const getInitialField = (starterArr) => {
@@ -98,7 +105,7 @@ const hasMoves = (grid) => {
   return false;
 };
 
-export const move = (matrix, direction) => {
+export const move = (matrix, direction, scoreCallback) => {
   //@todo full refactoring
   let grid = convertToMatrix([...matrix.getArray()]);
 
@@ -119,7 +126,7 @@ export const move = (matrix, direction) => {
       break;
   }
 
-  let newGrid = calculateGrid(grid);
+  let newGrid = calculateGrid(grid, scoreCallback);
   if (!isEqual(grid, newGrid)) {
     grid = newGrid;
   }
@@ -144,11 +151,13 @@ export const move = (matrix, direction) => {
   return new Matrix(flatten(grid), GRID_SIZE);
 };
 
-const calculateGrid = (grid) => {
-  return grid.map(calculateRow);
+const calculateGrid = (grid, scoreCallback) => {
+  return grid.map((row) => {
+    return calculateRow(row, scoreCallback)
+  });
 };
 
-const calculateRow = (row) => {
+const calculateRow = (row, scoreCallback) => {
   let newRow = [...row];
 
   newRow = shrinkRow(newRow);
@@ -156,9 +165,10 @@ const calculateRow = (row) => {
   for (let i = 0; i < row.length; i++) {
     if (newRow[i] === newRow[i + 1]) {
       newRow[i] = newRow[i] * 2;
+      if (typeof scoreCallback === 'function'){
+        scoreCallback(newRow[i]);
+      }
       newRow[i + 1] = 0;
-      // @todo inject function
-      score += newRow[i];
       newRow = shrinkRow(newRow);
     }
   }
@@ -253,6 +263,152 @@ export const convertToMatrix = (array, size) => {
   }
 
   return result;
+};
+
+// ------------------------------
+// ------ performance block -----
+// ------------------------------
+const makeTest = () => {
+  console.log('test');
+  const times = 1000000;
+
+  let t0 = performance.now();
+  for (let i = 0; i < times; i ++) {
+    let field = getInitialField();
+    field = insertAtRandom(field, generateNewNumber());
+    field = insertAtRandom(field, generateNewNumber());
+    field = insertAtRandom(field, generateNewNumber());
+    field = insertAtRandom(field, generateNewNumber());
+
+    move(field, getRandomMove());
+  }
+  let t1 = performance.now();
+  console.log(`${times/1000} moves took ${((t1-t0)/1000).toFixed(2)} ms`)
+  //6.85   6.43   7.03
+};
+
+// ------------------------------
+// ------ AI block --------------
+// ------------------------------
+const startAI = (movesRemain, depth = 10, timeout) => {
+  onKeyDown({key: getNextMove(depth)});
+
+  movesRemain--;
+  if (!isFinished && movesRemain) {
+    if (timeout >= 0) {
+      setTimeout(startAI.bind(null, movesRemain, depth, timeout), timeout);
+    } else {
+      startAI(movesRemain, depth);
+    }
+  }
+};
+
+const getNextMove = (depth) => {
+  const moves = {
+    [LEFT]: 'ArrowLeft',
+    [RIGHT]: 'ArrowRight',
+    [UP]: 'ArrowUp',
+    [DOWN]: 'ArrowDown',
+  };
+
+  return moves[predictBestMove(rootGrid, depth)];
+};
+
+const predictBestMove = (grid, depth) => {
+  let sequences = [];
+  sequences.push(generateMCSequence(UP, grid, depth));
+  sequences.push(generateMCSequence(DOWN, grid, depth));
+  sequences.push(generateMCSequence(LEFT, grid, depth));
+  sequences.push(generateMCSequence(RIGHT, grid, depth));
+  // @todo add prediction method changing
+  // sequences.push(generateSequence(UP, grid, depth));
+  // sequences.push(generateSequence(DOWN, grid, depth));
+  // sequences.push(generateSequence(LEFT, grid, depth));
+  // sequences.push(generateSequence(RIGHT, grid, depth));
+
+  let bestSequence = sequences.reduce(
+    (acc, x) => {
+      if (!acc || compareSequences(x, acc)) {
+        acc = x;
+      }
+      return acc;
+    }
+  );
+
+  return bestSequence.move;
+};
+
+const generateMCSequence = (initialMove, initialGrid, depth) => {
+  const attempts = 100;
+  const seqs = [];
+
+  for (let i = 0; i < attempts; i++) {
+    seqs.push(generateSequence(initialMove, initialGrid, depth));
+  }
+
+  return {
+    move: initialMove,
+    points: sum(seqs.map(x => x.points))/seqs.length,
+    max: 0,
+    sum: 0,
+  };
+};
+
+const generateSequence = (initialMove, initialGrid, depth) => {
+  let currentMove = initialMove;
+  let grid = new Matrix(initialGrid.getArray(), GRID_SIZE);
+  let points = 0;
+
+  const addPoints = (value) => {
+    points += value;
+  };
+
+  for (let i = 0; i < depth; i++) {
+    let newGrid = move(grid, currentMove, addPoints);
+
+    if (!isMatricesEqual(rootGrid, newGrid)) {
+      newGrid = insertAtRandom(newGrid, generateNewNumber());
+
+      grid = newGrid;
+      currentMove = getRandomMove(currentMove);
+
+      if(!hasEmptyCell(newGrid) && !hasMoves(newGrid)) {
+        break;
+      }
+    }
+  }
+
+  return {
+    move: initialMove,
+    points: points,
+    max: max(grid.getArray()),
+    sum: sum(grid.getArray()),
+    emptyCells: grid.getArray().reduce((acc, x) => { if (x === 0) {acc += x} return acc;}, 0)
+  };
+};
+
+const compareSequences = (first, second) => {
+  // if (first.emptyCells !== second.emptyCells) return first.emptyCells > second.emptyCells;
+  if (first.points !== second.points) return first.points > second.points;
+  if(first.max !== second.max) return first.max > second.max;
+  if(first.sum !== second.sum) return first.sum > second.sum;
+};
+
+const getRandomMove = (exclude = '') => {
+  const moves = [UP, DOWN, LEFT, RIGHT].filter(x => x !== exclude);
+  return moves[Math.floor(Math.random() * 4)];
+};
+
+
+// ------------------------------
+// ------ Helpers ---------------
+// ------------------------------
+const sum = (arr) => {
+  return arr.reduce((acc,x) => acc + x, 0);
+};
+
+const max = (arr) => {
+  return Math.max.apply(null, arr);
 };
 
 export default Game;
