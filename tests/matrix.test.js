@@ -59,4 +59,101 @@ describe('game', () => {
     expect(gottenArr).toEqual(arr);
     expect(gottenArr !== arr).toBeTruthy();
   });
+
+  describe('getRows', () => {
+    it('getRows 2x2', () => {
+      const arr = [1,2,3,4];
+      const expected = [
+        [1,2],
+        [3,4],
+      ];
+      const matrix = new Matrix(arr, 2);
+      const rows = matrix.getRows();
+      expect(rows).toEqual(expected);
+    });
+
+    it('getRows 3x3', () => {
+      const arr = [
+        1,2,3,
+        4,5,6,
+        7,8,9,
+      ];
+      const expected = [
+        [1,2,3],
+        [4,5,6],
+        [7,8,9],
+      ];
+      const matrix = new Matrix(arr, 3);
+      const rows = matrix.getRows();
+      expect(rows).toEqual(expected);
+    });
+
+    it('getRows 4x4', () => {
+      const arr = [
+        0,0,0,0,
+        1,1,1,1,
+        2,2,2,2,
+        3,3,3,3,
+      ];
+      const expected = [
+        [0,0,0,0],
+        [1,1,1,1],
+        [2,2,2,2],
+        [3,3,3,3],
+      ];
+      const matrix = new Matrix(arr, 4);
+      const rows = matrix.getRows();
+      expect(rows).toEqual(expected);
+    });
+  });
+
+  describe('getColumns', () => {
+    it('getColumns 2x2', () => {
+      const arr = [
+        1,2,
+        3,4,
+      ];
+      const expected = [
+        [1,3],
+        [2,4],
+      ];
+      const matrix = new Matrix(arr, 2);
+      const rows = matrix.getColumns();
+      expect(rows).toEqual(expected);
+    });
+
+    it('getColumns 3x3', () => {
+      const arr = [
+        1,2,3,
+        4,5,6,
+        7,8,9,
+      ];
+      const expected = [
+        [1,4,7],
+        [2,5,8],
+        [3,6,9],
+      ];
+      const matrix = new Matrix(arr, 3);
+      const rows = matrix.getColumns();
+      expect(rows).toEqual(expected);
+    });
+
+    it('getColumns 4x4', () => {
+      const arr = [
+        0,1,2,3,
+        4,4,4,4,
+        1,2,3,4,
+        1,2,3,4,
+      ];
+      const expected = [
+        [0,4,1,1],
+        [1,4,2,2],
+        [2,4,3,3],
+        [3,4,4,4],
+      ];
+      const matrix = new Matrix(arr, 4);
+      const rows = matrix.getColumns();
+      expect(rows).toEqual(expected);
+    });
+  });
 });

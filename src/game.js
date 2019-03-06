@@ -1,6 +1,5 @@
 import isEqual from 'lodash/isEqual';
 import flatten from 'lodash/flatten';
-import some from 'lodash/some';
 import Matrix, { isMatricesEqual } from './matrix';
 
 const GRID_SIZE = 4;
@@ -25,8 +24,8 @@ class Game {
     document.addEventListener('keydown', onKeyDown);
     renderField(rootElement, rootGrid);
 
-    startAI(-1, 20, 0);
-    // makeTest();
+    startAI(-1, 20, 50, 0);
+    // makeMoveTest();
   }
 }
 
@@ -60,7 +59,7 @@ const onKeyDown = (event) => {
     rootGrid = insertAtRandom(newGrid, generateNewNumber());
     renderField(rootElement, rootGrid);
 
-    if(!hasEmptyCell(rootGrid.getArray()) && !hasMoves(rootGrid)) {
+    if(!hasMoves(rootGrid)) {
       isFinished = true;
       renderGameOver(rootElement);
     }
@@ -88,77 +87,65 @@ const generateNewNumber = () => {
   return (10 * Math.random() > 9) ? 4 : 2;
 };
 
-const hasMoves = (grid) => {
-  //@todo make simpler
-  if (!isMatricesEqual(move(grid, UP), grid)) {
-    return true;
+export const hasMoves = (grid) => {
+  return hasEmptyCell(grid.getArray())
+    || hasMovesInRows(grid.getRows())
+    || hasMovesInRows(grid.getColumns());
+};
+
+const hasMovesInRows = (rows) => {
+  for (let i = 0; i < rows.length; i++){
+    const row = rows[i];
+    for (let j = 0; j < row.length; j++) {
+      if(row[j] === row[j + 1]) {
+        return true;
+      }
+    }
   }
-  if (!isMatricesEqual(move(grid, DOWN), grid)) {
-    return true;
-  }
-  if (!isMatricesEqual(move(grid, LEFT), grid)) {
-    return true;
-  }
-  if (!isMatricesEqual(move(grid, RIGHT), grid)) {
-    return true;
-  }
+
   return false;
 };
 
 export const move = (matrix, direction, scoreCallback) => {
-  //@todo full refactoring
-  let grid = convertToMatrix([...matrix.getArray()]);
+  let newGrid;
 
   switch (direction) {
     case LEFT:
+      newGrid = calculateGrid(matrix.getRows(), {scoreCallback, direction: 1});
       break;
     case DOWN:
-      grid = rotateMatrix(grid);
+      newGrid = calculateGrid(matrix.getColumns(), {scoreCallback, direction: -1});
+      newGrid = new Matrix(flatten(newGrid), GRID_SIZE).getColumns();
       break;
     case RIGHT:
-      grid = rotateMatrix(grid);
-      grid = rotateMatrix(grid);
+      newGrid = calculateGrid(matrix.getRows(), {scoreCallback, direction: -1});
       break;
     case UP:
-      grid = rotateMatrix(grid);
-      grid = rotateMatrix(grid);
-      grid = rotateMatrix(grid);
+      newGrid = calculateGrid(matrix.getColumns(), {scoreCallback, direction: 1});
+      newGrid = new Matrix(flatten(newGrid), GRID_SIZE).getColumns();
       break;
   }
 
-  let newGrid = calculateGrid(grid, scoreCallback);
-  if (!isEqual(grid, newGrid)) {
+  let grid = matrix.getArray();
+  if (!isEqual(grid, flatten(newGrid))) {
     grid = newGrid;
-  }
-
-  switch (direction) {
-    case LEFT:
-      break;
-    case DOWN:
-      grid = rotateMatrix(grid);
-      grid = rotateMatrix(grid);
-      grid = rotateMatrix(grid);
-      break;
-    case RIGHT:
-      grid = rotateMatrix(grid);
-      grid = rotateMatrix(grid);
-      break;
-    case UP:
-      grid = rotateMatrix(grid);
-      break;
   }
 
   return new Matrix(flatten(grid), GRID_SIZE);
 };
 
-const calculateGrid = (grid, scoreCallback) => {
+const calculateGrid = (grid, {scoreCallback, direction}) => {
   return grid.map((row) => {
-    return calculateRow(row, scoreCallback)
+    return calculateRow(row, {scoreCallback, direction})
   });
 };
 
-const calculateRow = (row, scoreCallback) => {
+const calculateRow = (row, {scoreCallback, direction}) => {
   let newRow = [...row];
+
+  if (direction < 0) {
+    newRow.reverse();
+  }
 
   newRow = shrinkRow(newRow);
 
@@ -171,6 +158,10 @@ const calculateRow = (row, scoreCallback) => {
       newRow[i + 1] = 0;
       newRow = shrinkRow(newRow);
     }
+  }
+
+  if (direction < 0) {
+    newRow.reverse();
   }
 
   return newRow;
@@ -193,20 +184,6 @@ export const shrinkRow = (row) => {
   return newRow;
 };
 
-export const rotateMatrix = (matrix) => {
-  let newMatrix = matrix.reverse();
-
-  for (var i = 0; i < newMatrix.length; i++) {
-    for (var j = 0; j < i; j++) {
-      var temp = newMatrix[i][j];
-      newMatrix[i][j] = newMatrix[j][i];
-      newMatrix[j][i] = temp;
-    }
-  }
-
-  return newMatrix;
-};
-
 const insertAtRandom = (grid, number) => {
   let arr = grid.getArray();
 
@@ -227,12 +204,17 @@ const insertAtRandom = (grid, number) => {
   return grid;
 };
 
-export const hasEmptyCell = (grid) => {
-  return some(grid, x => x === 0);
+export const hasEmptyCell = (array) => {
+  for (let i = 0; i < array.length; i++){
+    if(array[i] === 0){
+      return true;
+    }
+  }
+  return false;
 };
 
 const renderField = (element, matrix) => {
-  const grid = convertToMatrix(matrix.getArray());
+  const grid = matrix.getRows();
   let markup = `Score: ${score}`;
 
   grid.forEach((row)=>{
@@ -250,25 +232,10 @@ const renderGameOver = (element) => {
   element.appendChild(document.createTextNode('Game Over'));
 };
 
-export const convertToMatrix = (array, size) => {
-  size = size || GRID_SIZE;
-  const len = array.length;
-  let result = [];
-  for (let i = 0, j = 0; i < len; i++) {
-    j = (i - i % size) / size;
-    if (i % size === 0) {
-      result.push([]);
-    }
-    result[j].push(array[i]);
-  }
-
-  return result;
-};
-
 // ------------------------------
 // ------ performance block -----
 // ------------------------------
-const makeTest = () => {
+const makeMoveTest = () => {
   console.log('test');
   const times = 1000000;
 
@@ -285,25 +252,28 @@ const makeTest = () => {
   let t1 = performance.now();
   console.log(`${times/1000} moves took ${((t1-t0)/1000).toFixed(2)} ms`)
   //6.85   6.43   7.03
+  //6.03   6.15   6.24
+  //6.11   6.32   5.70
+  //5.46   6.07   5.40
 };
 
 // ------------------------------
 // ------ AI block --------------
 // ------------------------------
-const startAI = (movesRemain, depth = 10, timeout) => {
-  onKeyDown({key: getNextMove(depth)});
+const startAI = (movesRemain, depth, attempts, timeout) => {
+  onKeyDown({key: getNextMove(depth, attempts)});
 
   movesRemain--;
   if (!isFinished && movesRemain) {
     if (timeout >= 0) {
-      setTimeout(startAI.bind(null, movesRemain, depth, timeout), timeout);
+      setTimeout(startAI.bind(null, movesRemain, depth, attempts, timeout), timeout);
     } else {
-      startAI(movesRemain, depth);
+      startAI(movesRemain, depth, attempts);
     }
   }
 };
 
-const getNextMove = (depth) => {
+const getNextMove = (depth, attempts) => {
   const moves = {
     [LEFT]: 'ArrowLeft',
     [RIGHT]: 'ArrowRight',
@@ -311,21 +281,20 @@ const getNextMove = (depth) => {
     [DOWN]: 'ArrowDown',
   };
 
-  return moves[predictBestMove(rootGrid, depth)];
+  return moves[predictBestMove(rootGrid, depth, attempts)];
 };
 
-const predictBestMove = (grid, depth) => {
+const predictBestMove = (grid, depth, attempts) => {
   let sequences = [];
-  sequences.push(generateMCSequence(UP, grid, depth));
-  sequences.push(generateMCSequence(DOWN, grid, depth));
-  sequences.push(generateMCSequence(LEFT, grid, depth));
-  sequences.push(generateMCSequence(RIGHT, grid, depth));
+  sequences.push(generateMCSequence(UP, grid, depth, attempts));
+  sequences.push(generateMCSequence(DOWN, grid, depth, attempts));
+  sequences.push(generateMCSequence(LEFT, grid, depth, attempts));
+  sequences.push(generateMCSequence(RIGHT, grid, depth, attempts));
   // @todo add prediction method changing
   // sequences.push(generateSequence(UP, grid, depth));
   // sequences.push(generateSequence(DOWN, grid, depth));
   // sequences.push(generateSequence(LEFT, grid, depth));
   // sequences.push(generateSequence(RIGHT, grid, depth));
-
   let bestSequence = sequences.reduce(
     (acc, x) => {
       if (!acc || compareSequences(x, acc)) {
@@ -338,8 +307,7 @@ const predictBestMove = (grid, depth) => {
   return bestSequence.move;
 };
 
-const generateMCSequence = (initialMove, initialGrid, depth) => {
-  const attempts = 100;
+const generateMCSequence = (initialMove, initialGrid, depth, attempts) => {
   const seqs = [];
 
   for (let i = 0; i < attempts; i++) {
@@ -349,8 +317,8 @@ const generateMCSequence = (initialMove, initialGrid, depth) => {
   return {
     move: initialMove,
     points: sum(seqs.map(x => x.points))/seqs.length,
-    max: 0,
-    sum: 0,
+    // steps: sum(seqs.map(x => x.steps))/seqs.length,
+    // emptyCells: sum(seqs.map(x => x.emptyCells))/seqs.length,
   };
 };
 
@@ -358,45 +326,54 @@ const generateSequence = (initialMove, initialGrid, depth) => {
   let currentMove = initialMove;
   let grid = new Matrix(initialGrid.getArray(), GRID_SIZE);
   let points = 0;
+  let emptyCells = 0;
+  let steps = 0;
 
   const addPoints = (value) => {
     points += value;
   };
 
   for (let i = 0; i < depth; i++) {
+    steps = i;
     let newGrid = move(grid, currentMove, addPoints);
-
     if (!isMatricesEqual(rootGrid, newGrid)) {
       newGrid = insertAtRandom(newGrid, generateNewNumber());
 
       grid = newGrid;
       currentMove = getRandomMove(currentMove);
 
-      if(!hasEmptyCell(newGrid) && !hasMoves(newGrid)) {
+      if (i === 0) {
+        emptyCells = grid.getArray().reduce((acc, x) => { if (x===0) {acc++;} return acc;}, 0)
+      }
+
+      if(!hasMoves(newGrid)) {
         break;
       }
+    } else if (i === 0){
+      depth = 0;
+      points = 0;
+      emptyCells = 0;
     }
   }
 
   return {
     move: initialMove,
     points: points,
-    max: max(grid.getArray()),
-    sum: sum(grid.getArray()),
-    emptyCells: grid.getArray().reduce((acc, x) => { if (x === 0) {acc += x} return acc;}, 0)
+    // steps,
+    // emptyCells,
   };
 };
 
 const compareSequences = (first, second) => {
-  // if (first.emptyCells !== second.emptyCells) return first.emptyCells > second.emptyCells;
+  //@todo find optimal comparacion function
+  // if (first.steps !== second.steps) return first.steps > second.steps;
   if (first.points !== second.points) return first.points > second.points;
-  if(first.max !== second.max) return first.max > second.max;
-  if(first.sum !== second.sum) return first.sum > second.sum;
+  // if (first.emptyCells !== second.emptyCells) return first.emptyCells > second.emptyCells;
 };
 
 const getRandomMove = (exclude = '') => {
   const moves = [UP, DOWN, LEFT, RIGHT].filter(x => x !== exclude);
-  return moves[Math.floor(Math.random() * 4)];
+  return moves[Math.floor(Math.random() * moves.length)];
 };
 
 

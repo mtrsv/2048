@@ -18,6 +18,32 @@ export default class Matrix {
   getArray() {
     return [...this.data];
   }
+  getRows() {
+    const len = this.data.length;
+    let result = [];
+    for (let i = 0, j = 0; i < len; i++) {
+      j = (i - i % this.size) / this.size;
+      if (i % this.size === 0) {
+        result.push([]);
+      }
+      result[j].push(this.getAt(i));
+    }
+
+    return result;
+  }
+  getColumns() {
+    const len = this.data.length;
+    let result = [];
+    for (let i = 0; i < len; i++) {
+      let column = (i % this.size);
+      if(!result[column]) {
+        result[column] = [];
+      }
+      result[column].push(this.getAt(i));
+    }
+
+    return result;
+  }
 }
 
 export const getIndex = (i, j, size) => {
