@@ -1,7 +1,39 @@
-import Game from './game'
+import Game, {DOWN, LEFT, RIGHT, UP} from './game';
+import React from 'react';
+import { render } from 'react-dom';
+import Field from './field.jsx'
 
-const ROOT_SELECTOR = '#root';
+const rootElement = document.getElementById('root');
 
-const game = new Game(ROOT_SELECTOR);
+const renderReact = (rows, score, isFinished) => {
+  render(
+    <Field
+      rows={rows}
+      score={score}
+      isFinished={isFinished}
+    />,
+    rootElement
+  );
+};
+
+const game = new Game({renderCallback: renderReact});
+
+const onKeyDown = (event) => {
+  switch (event.key) {
+    case 'ArrowLeft':
+      game.applyCommand(LEFT);
+      break;
+    case 'ArrowRight':
+      game.applyCommand(RIGHT);
+      break;
+    case 'ArrowUp':
+      game.applyCommand(UP);
+      break;
+    case 'ArrowDown':
+      game.applyCommand(DOWN);
+      break;
+  }
+};
+
 game.start();
-
+document.addEventListener('keydown', onKeyDown);

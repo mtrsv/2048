@@ -9,23 +9,28 @@ export const DOWN = 'direction-down';
 export const LEFT = 'direction-left';
 export const RIGHT = 'direction-right';
 
-let rootElement;
+let renderFunction;
 let rootGrid;
 let isFinished = false;
 let score;
 
 class Game {
-  constructor(rootSelector){
+  constructor({renderCallback}){
     resetState();
-    rootElement = document.querySelector(rootSelector);
+    if (typeof renderCallback === 'function') {
+      renderFunction = renderCallback;
+    }
   }
 
   start () {
-    document.addEventListener('keydown', onKeyDown);
-    renderField(rootElement, rootGrid);
+    render();
 
     startAI(-1, 20, 50, 0);
     // makeMoveTest();
+  }
+
+  applyCommand (command) {
+    applyDirection(command);
   }
 }
 
@@ -35,34 +40,19 @@ const resetState = () => {
   rootGrid = getInitialField();
 };
 
-const onKeyDown = (event) => {
+const applyDirection = (direction) => {
   if (isFinished) {
     return;
   }
 
-  let newGrid;
-  switch (event.key) {
-    case 'ArrowLeft':
-      newGrid = move(rootGrid, LEFT, addGameScore);
-      break;
-    case 'ArrowRight':
-      newGrid = move(rootGrid, RIGHT, addGameScore);
-      break;
-    case 'ArrowUp':
-      newGrid = move(rootGrid, UP, addGameScore);
-      break;
-    case 'ArrowDown':
-      newGrid = move(rootGrid, DOWN, addGameScore);
-      break;
-  }
+  let newGrid = move(rootGrid, direction, addGameScore);
+
   if (newGrid && !isMatricesEqual(rootGrid, newGrid)) {
     rootGrid = insertAtRandom(newGrid, generateNewNumber());
-    renderField(rootElement, rootGrid);
-
     if(!hasMoves(rootGrid)) {
       isFinished = true;
-      renderGameOver(rootElement);
     }
+    render();
   }
 };
 
@@ -213,23 +203,10 @@ export const hasEmptyCell = (array) => {
   return false;
 };
 
-const renderField = (element, matrix) => {
-  const grid = matrix.getRows();
-  let markup = `Score: ${score}`;
-
-  grid.forEach((row)=>{
-    markup += '<div class="row">';
-    row.forEach((cell)=>{
-      markup += `<div class="cell"><div class="inner">${cell || ''}</div></div>`
-    });
-    markup += '</div>';
-  });
-
-  element.innerHTML = markup;
-};
-
-const renderGameOver = (element) => {
-  element.appendChild(document.createTextNode('Game Over'));
+const render = () => {
+  if (renderFunction) {
+    renderFunction(rootGrid.getRows(), score, isFinished);
+  }
 };
 
 // ------------------------------
@@ -261,7 +238,7 @@ const makeMoveTest = () => {
 // ------ AI block --------------
 // ------------------------------
 const startAI = (movesRemain, depth, attempts, timeout) => {
-  onKeyDown({key: getNextMove(depth, attempts)});
+  applyDirection(predictBestMove(rootGrid, depth, attempts));
 
   movesRemain--;
   if (!isFinished && movesRemain) {
@@ -271,17 +248,6 @@ const startAI = (movesRemain, depth, attempts, timeout) => {
       startAI(movesRemain, depth, attempts);
     }
   }
-};
-
-const getNextMove = (depth, attempts) => {
-  const moves = {
-    [LEFT]: 'ArrowLeft',
-    [RIGHT]: 'ArrowRight',
-    [UP]: 'ArrowUp',
-    [DOWN]: 'ArrowDown',
-  };
-
-  return moves[predictBestMove(rootGrid, depth, attempts)];
 };
 
 const predictBestMove = (grid, depth, attempts) => {
@@ -303,6 +269,10 @@ const predictBestMove = (grid, depth, attempts) => {
       return acc;
     }
   );
+
+  if (bestSequence.points === 0) {
+    bestSequence = sequences[Math.floor(Math.random() * sequences.length)];
+  }
 
   return bestSequence.move;
 };
