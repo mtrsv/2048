@@ -25,8 +25,11 @@ class Game {
   start () {
     render();
 
-    startAI(-1, 20, 50, 0);
     // makeMoveTest();
+  }
+
+  startAi ({moves, depth, attempts, timeout}) {
+    startAI(moves, depth, attempts, timeout);
   }
 
   applyCommand (command) {
@@ -251,16 +254,7 @@ const startAI = (movesRemain, depth, attempts, timeout) => {
 };
 
 const predictBestMove = (grid, depth, attempts) => {
-  let sequences = [];
-  sequences.push(generateMCSequence(UP, grid, depth, attempts));
-  sequences.push(generateMCSequence(DOWN, grid, depth, attempts));
-  sequences.push(generateMCSequence(LEFT, grid, depth, attempts));
-  sequences.push(generateMCSequence(RIGHT, grid, depth, attempts));
-  // @todo add prediction method changing
-  // sequences.push(generateSequence(UP, grid, depth));
-  // sequences.push(generateSequence(DOWN, grid, depth));
-  // sequences.push(generateSequence(LEFT, grid, depth));
-  // sequences.push(generateSequence(RIGHT, grid, depth));
+  const sequences = getDirectionalSequences(grid, depth, attempts);
   let bestSequence = sequences.reduce(
     (acc, x) => {
       if (!acc || compareSequences(x, acc)) {
@@ -275,6 +269,21 @@ const predictBestMove = (grid, depth, attempts) => {
   }
 
   return bestSequence.move;
+};
+
+export const getDirectionalSequences = (grid, depth, attempts) => {
+  let sequences = [];
+  sequences.push(generateMCSequence(UP, grid, depth, attempts));
+  sequences.push(generateMCSequence(DOWN, grid, depth, attempts));
+  sequences.push(generateMCSequence(LEFT, grid, depth, attempts));
+  sequences.push(generateMCSequence(RIGHT, grid, depth, attempts));
+  // @todo add prediction method changing
+  // sequences.push(generateSequence(UP, grid, depth));
+  // sequences.push(generateSequence(DOWN, grid, depth));
+  // sequences.push(generateSequence(LEFT, grid, depth));
+  // sequences.push(generateSequence(RIGHT, grid, depth));
+
+  return sequences;
 };
 
 const generateMCSequence = (initialMove, initialGrid, depth, attempts) => {

@@ -36,4 +36,10 @@ const onKeyDown = (event) => {
 };
 
 game.start();
+game.startAi({
+  moves: -1,
+  depth: 20,
+  attempts: 100,
+  timeout: 0,
+});
 document.addEventListener('keydown', onKeyDown);
