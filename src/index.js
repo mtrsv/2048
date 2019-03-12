@@ -11,6 +11,7 @@ const renderReact = (rows, score, isFinished) => {
       rows={rows}
       score={score}
       isFinished={isFinished}
+      predictionTime={window.meanTime}
     />,
     rootElement
   );
@@ -38,7 +39,7 @@ const onKeyDown = (event) => {
 game.start();
 game.startAi({
   moves: -1,
-  depth: 20,
+  depth: 30,
   attempts: 100,
   timeout: 0,
 });

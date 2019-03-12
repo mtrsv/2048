@@ -14,6 +14,8 @@ let rootGrid;
 let isFinished = false;
 let score;
 
+let aiWorker;
+
 class Game {
   constructor({renderCallback}){
     resetState();
@@ -29,6 +31,10 @@ class Game {
   }
 
   startAi ({moves, depth, attempts, timeout}) {
+    if(!aiWorker) {
+      initAiWorkers();
+    }
+
     startAI(moves, depth, attempts, timeout);
   }
 
@@ -63,7 +69,7 @@ const addGameScore = (value) => {
   score += value;
 };
 
-const getInitialField = (starterArr) => {
+export const getInitialField = (starterArr) => {
   if (starterArr) {
     return new Matrix(starterArr, GRID_SIZE);
   } else {
@@ -76,7 +82,7 @@ const getInitialField = (starterArr) => {
   }
 };
 
-const generateNewNumber = () => {
+export const generateNewNumber = () => {
   return (10 * Math.random() > 9) ? 4 : 2;
 };
 
@@ -177,7 +183,7 @@ export const shrinkRow = (row) => {
   return newRow;
 };
 
-const insertAtRandom = (grid, number) => {
+export const insertAtRandom = (grid, number) => {
   let arr = grid.getArray();
 
   let emptyPlaces = arr.reduce(
@@ -213,51 +219,46 @@ const render = () => {
 };
 
 // ------------------------------
-// ------ performance block -----
-// ------------------------------
-const makeMoveTest = () => {
-  console.log('test');
-  const times = 1000000;
-
-  let t0 = performance.now();
-  for (let i = 0; i < times; i ++) {
-    let field = getInitialField();
-    field = insertAtRandom(field, generateNewNumber());
-    field = insertAtRandom(field, generateNewNumber());
-    field = insertAtRandom(field, generateNewNumber());
-    field = insertAtRandom(field, generateNewNumber());
-
-    move(field, getRandomMove());
-  }
-  let t1 = performance.now();
-  console.log(`${times/1000} moves took ${((t1-t0)/1000).toFixed(2)} ms`)
-  //6.85   6.43   7.03
-  //6.03   6.15   6.24
-  //6.11   6.32   5.70
-  //5.46   6.07   5.40
-};
-
-// ------------------------------
 // ------ AI block --------------
 // ------------------------------
-const startAI = (movesRemain, depth, attempts, timeout) => {
-  applyDirection(predictBestMove(rootGrid, depth, attempts));
-
-  movesRemain--;
-  if (!isFinished && movesRemain) {
-    if (timeout >= 0) {
-      setTimeout(startAI.bind(null, movesRemain, depth, attempts, timeout), timeout);
-    } else {
-      startAI(movesRemain, depth, attempts);
-    }
+const initAiWorkers = () => {
+  if (window.Worker) {
+    aiWorker = {};
+    aiWorker[UP] = new Worker('../worker.js');
+    aiWorker[DOWN] = new Worker('../worker.js');
+    aiWorker[RIGHT] = new Worker('../worker.js');
+    aiWorker[LEFT] = new Worker('../worker.js');
   }
 };
 
-const predictBestMove = (grid, depth, attempts) => {
-  const sequences = getDirectionalSequences(grid, depth, attempts);
+async function startAI (movesRemain, depth, attempts, timeout) {
+  saveTime();
+  const bestMove = await predictBestMove(rootGrid, depth, attempts);
+
+  applyDirection(bestMove);
+
+  if (!isFinished && movesRemain !== 1) {
+    setTimeout(startAI.bind(null, movesRemain - 1, depth, attempts, timeout), timeout);
+  }
+}
+
+//@todo don't use global variables
+const saveTime = () => {
+  if (window.firstTime) {
+    window.timeCounter ++;
+    window.meanTime = (Date.now() - window.firstTime)/window.timeCounter;
+  } else {
+    window.timeCounter = 0;
+    window.firstTime = Date.now();
+  }
+};
+
+async function predictBestMove(grid, depth, attempts) {
+  const sequences = await getDirectionalSequences(grid, depth, attempts);
+
   let bestSequence = sequences.reduce(
     (acc, x) => {
-      if (!acc || compareSequences(x, acc)) {
+      if (compareSequences(x, acc)) {
         acc = x;
       }
       return acc;
@@ -267,26 +268,39 @@ const predictBestMove = (grid, depth, attempts) => {
   if (bestSequence.points === 0) {
     bestSequence = sequences[Math.floor(Math.random() * sequences.length)];
   }
-
   return bestSequence.move;
-};
+}
 
 export const getDirectionalSequences = (grid, depth, attempts) => {
-  let sequences = [];
-  sequences.push(generateMCSequence(UP, grid, depth, attempts));
-  sequences.push(generateMCSequence(DOWN, grid, depth, attempts));
-  sequences.push(generateMCSequence(LEFT, grid, depth, attempts));
-  sequences.push(generateMCSequence(RIGHT, grid, depth, attempts));
-  // @todo add prediction method changing
-  // sequences.push(generateSequence(UP, grid, depth));
-  // sequences.push(generateSequence(DOWN, grid, depth));
-  // sequences.push(generateSequence(LEFT, grid, depth));
-  // sequences.push(generateSequence(RIGHT, grid, depth));
+  let sequences = [
+    generateMCSequencePromise(UP, grid, depth, attempts),
+    generateMCSequencePromise(DOWN, grid, depth, attempts),
+    generateMCSequencePromise(LEFT, grid, depth, attempts),
+    generateMCSequencePromise(RIGHT, grid, depth, attempts),
+  ];
 
-  return sequences;
+  return Promise.all(sequences);
 };
 
-const generateMCSequence = (initialMove, initialGrid, depth, attempts) => {
+const generateMCSequencePromise = (initialMove, initialGrid, depth, attempts) => {
+  return new Promise((resolve) => {
+    if (aiWorker) {
+      let worker = aiWorker[initialMove];
+      worker.onmessage = ({data}) => {
+        resolve(data.sequence);
+      };
+
+      worker.postMessage({
+        name: 'generateMC',
+        data: {initialMove, initialGrid, depth, attempts},
+      });
+    } else {
+      resolve(generateMCSequence({initialMove, initialGrid, depth, attempts}));
+    }
+  });
+};
+
+export const generateMCSequence = ({initialMove, initialGrid, depth, attempts}) => {
   const seqs = [];
 
   for (let i = 0; i < attempts; i++) {
@@ -303,7 +317,8 @@ const generateMCSequence = (initialMove, initialGrid, depth, attempts) => {
 
 const generateSequence = (initialMove, initialGrid, depth) => {
   let currentMove = initialMove;
-  let grid = new Matrix(initialGrid.getArray(), GRID_SIZE);
+  // with call() it can be used in Worker
+  let grid = new Matrix(Matrix.prototype.getArray.call(initialGrid), GRID_SIZE);
   let points = 0;
   let emptyCells = 0;
   let steps = 0;
@@ -315,7 +330,7 @@ const generateSequence = (initialMove, initialGrid, depth) => {
   for (let i = 0; i < depth; i++) {
     steps = i;
     let newGrid = move(grid, currentMove, addPoints);
-    if (!isMatricesEqual(rootGrid, newGrid)) {
+    if (!isMatricesEqual(grid, newGrid)) {
       newGrid = insertAtRandom(newGrid, generateNewNumber());
 
       grid = newGrid;
@@ -329,9 +344,9 @@ const generateSequence = (initialMove, initialGrid, depth) => {
         break;
       }
     } else if (i === 0){
-      depth = 0;
       points = 0;
       emptyCells = 0;
+      break;
     }
   }
 
@@ -350,7 +365,7 @@ const compareSequences = (first, second) => {
   // if (first.emptyCells !== second.emptyCells) return first.emptyCells > second.emptyCells;
 };
 
-const getRandomMove = (exclude = '') => {
+export const getRandomMove = (exclude = '') => {
   const moves = [UP, DOWN, LEFT, RIGHT].filter(x => x !== exclude);
   return moves[Math.floor(Math.random() * moves.length)];
 };
