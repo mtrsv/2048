@@ -1,5 +1,8 @@
 export default class Matrix {
   constructor(array, matrixSize) {
+    if (typeof matrixSize !== 'number') {
+      throw new Error('matrixSize is not a number');
+    }
     this.data = [...array];
     this.size = matrixSize;
   }

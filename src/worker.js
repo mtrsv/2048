@@ -1,4 +1,4 @@
-import { generateMCSequence } from './game';
+import { generateMCSequence } from './ai';
 
 self.onmessage = (message) => {
   processMessage(message.data);
